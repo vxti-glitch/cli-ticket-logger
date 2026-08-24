@@ -21,25 +21,47 @@ import csv
 import datetime
 import json
 import os
+import tempfile
 import sys
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Storage
 # ---------------------------------------------------------------------------
 
-DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tickets.json")
+DEFAULT_DB_FILE = Path(__file__).with_name("tickets.json")
 
 
-def load_db():
-    if not os.path.isfile(DB_FILE):
+def load_db(db_file=DEFAULT_DB_FILE):
+    db_path = Path(db_file)
+    if not db_path.is_file():
         return {"next_id": 1001, "tickets": []}
-    with open(DB_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with db_path.open("r", encoding="utf-8") as f:
+            db = json.load(f)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"[ERROR] Ticket database is invalid JSON: {db_path} ({exc})") from exc
+
+    if not isinstance(db, dict) or "next_id" not in db or "tickets" not in db:
+        raise SystemExit(f"[ERROR] Ticket database has an unsupported schema: {db_path}")
+    return db
 
 
-def save_db(db):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
+def save_db(db, db_file=DEFAULT_DB_FILE):
+    db_path = Path(db_file)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=str(db_path.parent),
+        delete=False,
+    ) as f:
         json.dump(db, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+        temp_name = f.name
+
+    os.replace(temp_name, db_path)
 
 
 # ---------------------------------------------------------------------------
@@ -109,20 +131,22 @@ def format_ticket(t, short=False):
 # ---------------------------------------------------------------------------
 
 def cmd_new(args):
-    db = load_db()
+    db = load_db(args.db)
     ticket_id = db["next_id"]
 
     print("\n" + separator("="))
     print("  NEW TICKET")
     print(separator("="))
 
-    description = input("\nDescribe the issue:\n> ").strip()
+    description = (args.description or "").strip()
+    if not description:
+        description = input("\nDescribe the issue:\n> ").strip()
     if not description:
         print("[ERROR] Description cannot be empty.")
         sys.exit(1)
 
-    category = prompt_choice("Category:", CATEGORIES)
-    priority = prompt_choice("Priority:", PRIORITIES)
+    category = args.category or prompt_choice("Category:", CATEGORIES)
+    priority = args.priority or prompt_choice("Priority:", PRIORITIES)
 
     ticket = {
         "id":               ticket_id,
@@ -137,13 +161,13 @@ def cmd_new(args):
 
     db["tickets"].append(ticket)
     db["next_id"] += 1
-    save_db(db)
+    save_db(db, args.db)
 
-    print(f"\n[✓] Ticket #{ticket_id} created — {category} | {priority} priority")
+    print(f"\n[OK] Ticket #{ticket_id} created - {category} | {priority} priority")
 
 
 def cmd_list(args):
-    db = load_db()
+    db = load_db(args.db)
     tickets = db["tickets"]
 
     if not args.all:
@@ -161,7 +185,7 @@ def cmd_list(args):
     print(f"  {'ID':<8} {'Status':<12} {'Priority':<10} {'Category':<28} Opened")
     print(separator("─"))
     for t in tickets:
-        status_icon = "✅" if t["status"] == "resolved" else "🔴"
+        status_icon = "[RESOLVED]" if t["status"] == "resolved" else "[OPEN]"
         print(
             f"  {status_icon} #{t['id']:<5} {t['status']:<12} {t['priority']:<10} "
             f"{t['category']:<28} {t['opened']}"
@@ -170,7 +194,7 @@ def cmd_list(args):
 
 
 def cmd_view(args):
-    db = load_db()
+    db = load_db(args.db)
     matches = [t for t in db["tickets"] if t["id"] == args.id]
     if not matches:
         print(f"[ERROR] Ticket #{args.id} not found.")
@@ -179,7 +203,7 @@ def cmd_view(args):
 
 
 def cmd_resolve(args):
-    db = load_db()
+    db = load_db(args.db)
     matches = [t for t in db["tickets"] if t["id"] == args.id]
     if not matches:
         print(f"[ERROR] Ticket #{args.id} not found.")
@@ -194,7 +218,9 @@ def cmd_resolve(args):
     print(f"  RESOLVE TICKET #{args.id}")
     print(separator("="))
     print(f"  Issue: {ticket['description'][:80]}...")
-    notes = input("\nResolution notes (what fixed it?):\n> ").strip()
+    notes = (args.notes or "").strip()
+    if not notes:
+        notes = input("\nResolution notes (what fixed it?):\n> ").strip()
     if not notes:
         print("[ERROR] Resolution notes cannot be empty.")
         sys.exit(1)
@@ -202,30 +228,30 @@ def cmd_resolve(args):
     ticket["status"] = "resolved"
     ticket["resolution_notes"] = notes
     ticket["resolved"] = now_str()
-    save_db(db)
-    print(f"\n[✓] Ticket #{args.id} marked as resolved.")
+    save_db(db, args.db)
+    print(f"\n[OK] Ticket #{args.id} marked as resolved.")
 
 
 def cmd_export(args):
-    db = load_db()
+    db = load_db(args.db)
     if not db["tickets"]:
         print("[INFO] No tickets to export.")
         return
 
-    export_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
+    export_path = Path(args.output) if args.output else Path(__file__).with_name(
         f"tickets_export_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     )
+    export_path.parent.mkdir(parents=True, exist_ok=True)
 
     fields = ["id", "status", "category", "priority", "description",
               "resolution_notes", "opened", "resolved"]
 
-    with open(export_path, "w", newline="", encoding="utf-8") as f:
+    with export_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(db["tickets"])
 
-    print(f"[✓] Exported {len(db['tickets'])} ticket(s) to: {export_path}")
+    print(f"[OK] Exported {len(db['tickets'])} ticket(s) to: {export_path}")
 
 
 # ---------------------------------------------------------------------------
@@ -236,9 +262,18 @@ def main():
     parser = argparse.ArgumentParser(
         description="CLI Ticket Logger — command-line IT support ticket tracker."
     )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=DEFAULT_DB_FILE,
+        help="Path to the ticket JSON database. Default: tickets.json next to this script.",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("new",     help="Create a new ticket")
+    p_new = sub.add_parser("new", help="Create a new ticket")
+    p_new.add_argument("--description", help="Ticket description for non-interactive use")
+    p_new.add_argument("--category", choices=CATEGORIES, help="Ticket category")
+    p_new.add_argument("--priority", choices=PRIORITIES, help="Ticket priority")
 
     p_list = sub.add_parser("list",  help="List tickets")
     p_list.add_argument("--all", action="store_true",
@@ -249,8 +284,10 @@ def main():
 
     p_res = sub.add_parser("resolve", help="Mark a ticket as resolved")
     p_res.add_argument("id", type=int, help="Ticket ID (e.g. 1001)")
+    p_res.add_argument("--notes", help="Resolution notes for non-interactive use")
 
-    sub.add_parser("export",  help="Export all tickets to CSV")
+    p_export = sub.add_parser("export", help="Export all tickets to CSV")
+    p_export.add_argument("--output", type=Path, help="CSV export path")
 
     args = parser.parse_args()
 
