@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+tickets.json
+tickets_export_*.csv
+.env
+venv/
+.venv/

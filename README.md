@@ -2,7 +2,7 @@
 
 [github.com/vxti-glitch](https://github.com/vxti-glitch)
 
-A command-line IT support ticket tracker. Log issues, set priority and category, mark tickets resolved with notes, and export your ticket history to CSV. No external dependencies — pure Python.
+A command-line IT support ticket tracker. Log issues, set priority and category, mark tickets resolved with notes, and export your ticket history to CSV. No external dependencies - pure Python.
 
 Built to demonstrate understanding of what a support ticket actually contains and how resolution workflows are structured.
 
@@ -17,6 +17,11 @@ python tickets.py list --all       # List all tickets including resolved
 python tickets.py view 1001        # View full details of ticket #1001
 python tickets.py resolve 1001     # Mark ticket #1001 as resolved
 python tickets.py export           # Export all tickets to timestamped CSV
+
+# Non-interactive examples for scripts/tests
+python tickets.py --db demo.json new --description "VPN error 800" --category "Network / Connectivity" --priority High
+python tickets.py --db demo.json resolve 1001 --notes "Updated VPN client and restarted service"
+python tickets.py --db demo.json export --output tickets.csv
 ```
 
 ---
@@ -50,7 +55,7 @@ Priority:
   4. Critical
   Enter number: 3
 
-[✓] Ticket #1001 created — Network / Connectivity | High priority
+[OK] Ticket #1001 created - Network / Connectivity | High priority
 
 ---
 
@@ -60,8 +65,8 @@ $ python tickets.py list
   OPEN TICKETS (1 total)
 ============================================================
   ID       Status       Priority   Category                     Opened
-  ────────────────────────────────────────────────────────────
-  🔴 #1001  open         High       Network / Connectivity       2026-08-03 20:15:00
+  ------------------------------------------------------------
+  [OPEN] #1001  open         High       Network / Connectivity       2026-08-03 20:15:00
 
 ---
 
@@ -75,14 +80,20 @@ $ python tickets.py resolve 1001
 Resolution notes (what fixed it?):
 > Confirmed VPN client was outdated — updated to v5.2, restarted service, connection restored.
 
-[✓] Ticket #1001 marked as resolved.
+[OK] Ticket #1001 marked as resolved.
 ```
 
 ---
 
 ## Data storage
 
-Tickets are stored locally in `tickets.json` — human-readable and portable. Export to CSV for spreadsheet-based reporting or to simulate attaching to a formal ticketing system.
+Tickets are stored locally in `tickets.json` by default. Use `--db PATH` to keep separate demo, test, or customer-specific databases. Writes are atomic to reduce the chance of JSON corruption if the process is interrupted.
+
+Run tests:
+
+```bash
+python -m unittest discover -s tests -v
+```
 
 **CSV export columns:** ID, Status, Category, Priority, Description, Resolution Notes, Opened, Resolved
 
@@ -90,7 +101,7 @@ Tickets are stored locally in `tickets.json` — human-readable and portable. Ex
 
 ## Help Desk relevance
 
-Every professional ticketing system (Zendesk, Freshdesk, ServiceNow, Jira Service Management) is built on the same data model this tool implements: a unique ID, a category, a priority level, a description, resolution notes, and timestamps. Building this from scratch demonstrates that the underlying structure of a ticket isn't a mystery — it's something I understand well enough to implement.
+Every professional ticketing system (Zendesk, Freshdesk, ServiceNow, Jira Service Management) is built on the same data model this tool implements: a unique ID, a category, a priority level, a description, resolution notes, and timestamps. Building this from scratch demonstrates that the underlying structure of a ticket is something I understand well enough to implement.
 
 **Skills:** Python · CLI tool design · JSON data persistence · CSV export · Ticketing system concepts
 
