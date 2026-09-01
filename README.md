@@ -1,5 +1,7 @@
 # CLI Ticket Logger
 
+> **DEPRECATED — archive after this notice is merged.** This early utility is superseded by the [Northstar Help Desk Operations Lab](https://github.com/vxti-glitch/enterprise-helpdesk-operations-lab), which preserves history while modeling incidents, requests, event timelines, relationships, and explicit simulation boundaries.
+
 [github.com/vxti-glitch](https://github.com/vxti-glitch)
 
 A command-line IT support ticket tracker. Log issues, set priority and category, mark tickets resolved with notes, and export your ticket history to CSV. No external dependencies - pure Python.
@@ -101,7 +103,7 @@ python -m unittest discover -s tests -v
 
 ## Help Desk relevance
 
-Every professional ticketing system (Zendesk, Freshdesk, ServiceNow, Jira Service Management) is built on the same data model this tool implements: a unique ID, a category, a priority level, a description, resolution notes, and timestamps. Building this from scratch demonstrates that the underlying structure of a ticket is something I understand well enough to implement.
+This utility implements a small local ticket record with an ID, category, priority, description, resolution notes, and timestamps. Professional ITSM platforms have substantially richer, product-specific data models, permissions, workflows, integrations, and controls; this prototype is not equivalent to them.
 
 **Skills:** Python · CLI tool design · JSON data persistence · CSV export · Ticketing system concepts
 
